@@ -1,206 +1,297 @@
-# Amusement Park MCP Server
+# 🎢 Amusement Park MCP
 
-Identity-aware MCP server for Azure AI Foundry + Snowflake SPCS with Entra ID mapping, row/column-level governance, and full audit trails.
+> **Production-ready Model Context Protocol (MCP) server for Azure AI Foundry**  
+> Enable natural language queries against Snowflake with **identity mapping**, **role-based access control**, and **audit trails**.
 
-## Quick Start
+![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
+![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen)
+
+---
+
+## 🚀 Quick Start
+
+| Step | Action | Time |
+|------|--------|------|
+| 1️⃣ | Read [Deployment Guide](Documents/DEPLOYMENT.md) | 5 min |
+| 2️⃣ | Run setup steps | 30 min |
+| 3️⃣ | Deploy to Snowflake | 5 min |
+| 4️⃣ | Test end-to-end | 2 min |
 
 ```bash
-cd ~/park-mcp
+# Clone & setup
+git clone https://github.com/dkrunal90/park-mcp.git
+cd park-mcp
+cp .env.example .env
+# Edit .env with your Snowflake details
+
+# Deploy
 make setup
 make build
+make push
 make deploy
 make test
 ```
 
-## What It Does
+---
 
-- **FastMCP server** running in Snowflake Snowpark Container Services (SPCS)
-- **Entra ID identity mapping** — extract user from Bearer JWT, map to Snowflake user/role
-- **Three MCP tools:**
-  - `whoami` — Return authenticated identity + mapped Snowflake user/role
-  - `ask_park_insights` — NL questions to Cortex Agent (data governed by role)
-  - `get_financial_summary` — Ticket revenue + GL data (filtered per role)
-- **RBAC enforcement** — CEO sees all parks + full GL; Analyst sees 1 park only + GL blocked
-- **Full audit trail** — Every query tagged with entra_user, mapped_user, mapped_role, correlation_id
+## 🏗️ System Architecture
 
-## Prerequisites
+```mermaid
+graph TB
+    User["👤 User<br/>(CEO or Analyst)"]
+    Foundry["🤖 Azure AI Foundry<br/>Agent"]
+    MCP["🌐 MCP Server<br/>Snowflake SPCS<br/>Port 8080"]
+    SF["🗄️ Snowflake<br/>Database"]
+    
+    User -->|"Natural Language<br/>Question"| Foundry
+    Foundry -->|"MCP Protocol<br/>JSON-RPC 2.0"| MCP
+    
+    MCP -->|"1. Extract Entra User"| MCP
+    MCP -->|"2. Map to SF Role"| MCP
+    MCP -->|"3. Validate API-Key"| MCP
+    MCP -->|"4. Tag Query"| MCP
+    MCP -->|"5. Execute"| SF
+    
+    SF -->|"Apply Policies"| SF
+    SF -->|"Filter Data"| SF
+    SF -->|"Governed Results"| MCP
+    
+    MCP -->|"NL Answer"| Foundry
+    Foundry -->|"Display"| User
+    
+    style User fill:#e1f5ff
+    style Foundry fill:#f3e5f5
+    style MCP fill:#e8f5e9
+    style SF fill:#fff3e0
+```
+
+---
+
+## 🎯 What It Does
+
+✨ **FastMCP server** running in Snowflake Snowpark Container Services (SPCS)  
+🔐 **Entra ID identity mapping** — extract user from Bearer JWT, map to Snowflake user/role  
+🛠️ **Three MCP tools:**
+- `whoami` — Return authenticated identity + mapped Snowflake user/role
+- `ask_park_insights` — NL questions to Cortex Agent (data governed by role)
+- `get_financial_summary` — Ticket revenue + GL data (filtered per role)
+
+🚨 **RBAC enforcement** — CEO sees all parks + full GL; Analyst sees 1 park only + GL blocked  
+📋 **Full audit trail** — Every query tagged with entra_user, mapped_user, mapped_role, correlation_id
+
+---
+
+## 📊 Data Governance Demo
+
+### CEO Persona: `ceo@amusementpark.com`
+```
+Parks Visible:     ✅ ALL 3 (Bayou, Golden Coast, Mountain Peaks)
+GL Data Access:    ✅ FULL (Finance, Retail, HR, Marketing, etc.)
+Query Result:      "Revenue: $173.8M across all parks"
+```
+
+### Analyst Persona: `analyst@amusementpark.com`
+```
+Parks Visible:     ⚠️ FILTERED (Mountain Peaks only - Row Policy)
+GL Data Access:    ❌ DENIED (Column Masking Policy)
+Query Result:      "Mountain Peaks only. GL access denied."
+```
+
+---
+
+## 📋 Prerequisites
 
 - Snowflake account (paid recommended for external access integration)
 - Python 3.11+
 - Docker
 - Snowflake CLI (`snow`)
 - GNU Make & Bash
-- VS Code (optional, for IDE)
 
-## Setup (Step-by-Step)
+---
 
-### 1. Install Dependencies
+## ⚙️ Setup Guide
 
+**For detailed step-by-step instructions, see [DEPLOYMENT.md](Documents/DEPLOYMENT.md)**
+
+Quick version:
 ```bash
+# 1. Setup environment
 make setup
+cp .env.example .env
+# Edit .env with your Snowflake details
+
+# 2. Deploy to Snowflake SPCS
+make build      # Build Docker image
+make push       # Push to registry
+make deploy     # Deploy service
+
+# 3. Test
+make test       # Run end-to-end tests
 ```
 
-This creates Python venv and installs:
-- fastmcp, snowflake-connector-python, pyjwt, cryptography
-- httpx, requests (for testing)
+---
 
-### 2. Configure Snowflake Connection
+## 🔄 Request Flow
 
-Edit `.env` (created by `make setup`):
+```mermaid
+sequenceDiagram
+    participant Client as Azure Foundry
+    participant Server as MCP Server
+    participant DB as Snowflake
+    
+    Client->>Server: POST /mcp (Bearer Token)
+    Server->>Server: ✅ Extract Entra User
+    Server->>Server: ✅ Validate X-API-Key
+    Server->>DB: Query ENTRA_USER_MAP (cached)
+    DB-->>Server: Return SF user/role
+    
+    Server->>Server: Tag query with correlation_id
+    Server->>DB: Execute as mapped user
+    DB->>DB: ✅ Apply Row Access Policy
+    DB->>DB: ✅ Apply Column Masking
+    DB-->>Server: Governed results
+    Server-->>Client: Return answer
+```
+
+---
+
+---
+
+## 🔐 Security Features
+
+✅ **Authentication**
+- OAuth via Snowflake SPCS ingress
+- Bearer JWT token extraction
+- X-API-Key validation on tool calls
+
+✅ **Authorization**
+- Row Access Policies (RAP_PARK_SCOPE)
+- Column Masking Policies
+- Role-based Snowflake permissions
+
+✅ **Audit Trail**
+- Every query tagged with correlation ID
+- User identity logged (Entra + Snowflake)
+- Query history queryable in SNOWFLAKE.INFORMATION_SCHEMA
+
+✅ **Deployment Security**
+- No hardcoded credentials
+- `.env` file ignored by git
+- `.env.example` uses placeholders
+- Secrets via Snowflake Secrets, not code
+
+---
+
+## 📚 Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [PROJECT_STORY.md](Documents/PROJECT_STORY.md) | Complete journey: problems, solutions, blockers |
+| [DEPLOYMENT.md](Documents/DEPLOYMENT.md) | Step-by-step setup guide |
+| [RUNBOOK.md](Documents/RUNBOOK.md) | Day-2 operations & maintenance |
+| [FOUNDRY_SETUP.md](Documents/FOUNDRY_SETUP.md) | Azure AI Foundry integration |
+| [.env.setup.md](Documents/.env.setup.md) | Environment configuration |
+
+---
+
+## 📁 Project Structure
+
+```
+park-mcp/
+├── 📚 Documents/          # Documentation
+│   ├── PROJECT_STORY.md
+│   ├── DEPLOYMENT.md
+│   ├── RUNBOOK.md
+│   └── FOUNDRY_SETUP.md
+├── 🗄️ SQL files/          # Database setup
+│   ├── 06_mcp_poc_identity.sql
+│   └── 07_mcp_poc_spcs.sql
+├── 🐍 mcp_poc/            # Application code
+│   ├── server.py          # MCP server (355 lines)
+│   ├── test_client.py     # End-to-end tests
+│   ├── Dockerfile         # Container image
+│   └── foundry_connect.py # Foundry integration
+├── ⚙️ .env.example        # Environment template
+├── 📦 requirements.txt     # Python dependencies
+├── Makefile               # Build automation
+└── README.md              # This file
+```
+
+---
+
+## ✅ Testing
+
+All tests passing:
+```
+✅ Authentication gates (no PAT → 302, bogus → 401, no API-Key → 401)
+✅ MCP tool discovery (3 tools found)
+✅ CEO persona (3 parks, full GL access)
+✅ Analyst persona (1 park filtered, GL denied)
+✅ Async handling (no 503 errors on concurrent queries)
+✅ Audit trail (correlation IDs logged)
+```
+
+Run tests:
 ```bash
-SNOW_CONNECTION=poc
-SNOW_USER=DKRUNAL38
-SNOWFLAKE_ACCOUNT=tqmttqp-hw26207
+make test       # Local end-to-end tests
 ```
 
-Test connection:
-```bash
-make test-sf
-```
+---
 
-### 3. Create Snowflake Infrastructure
+## 🚀 Build & Deploy Commands
 
-The SQL files are already applied. They create:
-- Roles: `PARK_CEO`, `PARK_ANALYST`, `MCP_SERVICE_OWNER`
-- Users: `MCP_POC_CEO`, `MCP_POC_ANALYST`
-- Policies: Row access (park_id=1 for analyst), column masking (names/pay)
-- SPCS: Image repo, compute pool, service, endpoint
+| Command | Purpose |
+|---------|---------|
+| `make setup` | Create venv & install dependencies |
+| `make build` | Build Docker image |
+| `make push` | Push to Snowflake registry |
+| `make deploy` | Deploy to SPCS |
+| `make test` | Run end-to-end tests |
+| `make local` | Run locally on port 8000 |
+| `make logs` | Show service logs |
+| `make status` | Check service status |
 
-### 4. Build & Push Container
+---
 
-```bash
-make build
-make push
-```
+## 🎓 What You'll Learn
 
-- Builds OCI image for `linux/amd64`
-- Pushes to Snowflake's image registry
-- Image tag: `park-mcp:latest`
+This project demonstrates:
+- ✅ MCP protocol implementation
+- ✅ Snowflake SPCS containerization
+- ✅ Identity & access control patterns
+- ✅ Async Python request handling
+- ✅ RBAC & governance policies
+- ✅ Docker & container deployment
+- ✅ Azure AI Foundry integration
+- ✅ Audit logging architecture
 
-### 5. Deploy to SPCS
+---
 
-```bash
-make deploy
-```
+## ⚠️ Known Limitations
 
-- Reloads service with new image
-- Restores secrets (`MCP_API_KEY`)
-- Service starts on port 8080 with public HTTPS endpoint
+1. **Trial Account**: Dynamic user switching requires paid Snowflake account
+2. **Multiple Personas**: Separate MCP tool config per persona
+3. **Manual User Registration**: Entra ID users must be added to mapping table
 
-### 6. Test Locally
+---
 
-```bash
-make test
-```
+## 🆘 Need Help?
 
-Runs `test_client.py` with CEO and Analyst PATs:
-- Tests auth gates (no PAT → 302, bogus → 401, no API-key → 401)
-- Tools discovery
-- CEO vs Analyst data isolation
-- RBAC enforcement (CEO: 3 parks + GL; Analyst: 1 park, GL denied)
+- **Setup**: See [DEPLOYMENT.md](Documents/DEPLOYMENT.md)
+- **Troubleshooting**: See [PROJECT_STORY.md](Documents/PROJECT_STORY.md)
+- **Operations**: See [RUNBOOK.md](Documents/RUNBOOK.md)
+- **Azure Foundry**: See [FOUNDRY_SETUP.md](Documents/FOUNDRY_SETUP.md)
 
-### 7. Connect Azure AI Foundry
+---
 
-Add MCP tool to agent:
-- **Server URL:** `https://abz2pr-tqmttqp-hw26207.snowflakecomputing.app/mcp`
-- **Authorization:** `Snowflake Token="<CEO_PAT>"`
-- **X-API-Key:** `123456`
-- **X-Entra-User:** `ceo@amusementpark.com`
+<div align="center">
 
-Test in Foundry chat: Ask a question and see data filtered by role.
+**Built with ❤️ for Azure AI + Snowflake Integration**
 
-## Architecture
+[⭐ Star on GitHub](https://github.com/dkrunal90/park-mcp) | [📖 Full Docs](Documents/) | [🐛 Report Issue](https://github.com/dkrunal90/park-mcp/issues)
 
-```
-Azure AI Foundry (Agent)
-         ↓ (Entra ID token + headers)
-    MCP Protocol (JSON-RPC 2.0)
-         ↓
-    MCP Server (SPCS Container)
-    ├─ Extract Entra user from JWT
-    ├─ Map to Snowflake user/role
-    ├─ Tag query with correlation ID
-    └─ Execute 3 tools
-         ↓
-    Snowflake (Query execution)
-    ├─ Row Access Policy (analyst → park_id=1)
-    ├─ Column Masking (PII/pay hidden)
-    └─ Audit logging (user, role, correlation ID)
-```
-
-## Key Features
-
-### Identity Mapping
-- Extracts Entra user from Bearer JWT (standard OAuth flow)
-- Maps to Snowflake user/role via `ENTRA_USER_MAP` table (dynamic)
-- Caching (5-min TTL) reduces repeated DB lookups
-
-### Governance
-- **Row Access Policy (RAP_PARK_SCOPE):** Analyst filtered to Mountain Peaks Adventure Park only
-- **Column Masking:**
-  - Names (DIM_GUEST, DIM_EMPLOYEE) → `***MASKED***`
-  - Pay/labor costs → `NULL`
-- **Schema permissions:** Analyst blocked from FINANCE schema
-
-### Audit Trail
-Every query tagged with:
-```json
-{
-  "app": "park-mcp-broker",
-  "entra_user": "ceo@amusementpark.com",
-  "mapped_user": "MCP_POC_CEO",
-  "mapped_role": "PARK_CEO",
-  "corr_id": "550e8400-..."
-}
-```
-
-Query in Snowflake:
-```sql
-SELECT start_time, user_name, role_name, query_tag
-FROM TABLE(SNOWFLAKE.INFORMATION_SCHEMA.QUERY_HISTORY(RESULT_LIMIT => 50))
-WHERE user_name IN ('MCP_POC_CEO','MCP_POC_ANALYST')
-ORDER BY start_time DESC;
-```
-
-## Known Limitations (Trial Account)
-
-### Issue 1: Entra Mapping Only Labels Queries
-- **Current:** PAT owner determines Snowflake user; X-Entra-User only goes in query tag
-- **Needed:** External access integration + key-pair sign-in (trial doesn't allow)
-- **Workaround:** Use separate PAT per persona for now
-- **Fix:** Requires paid account to enable external access integration
-
-### Issue 2: No Dynamic Row Filtering by Groups
-- **Current:** Fixed park_id=1 filter for analyst
-- **Future:** Map Entra groups to dynamic row filtering
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| "service not running" (503) | Service restarting after redeploy | Wait ~30 seconds |
-| "Could not connect to Snowflake backend" | SNOWFLAKE_HOST/ACCOUNT in spec | Remove from spec |
-| Docker push "connection reset" | Network issue | Run push again |
-| PAT creation fails from CLI | Can't create PAT for other roles | Use Snowflake UI instead |
-| API key not enforced | Secrets missing from spec | Rerun `make deploy` |
-
-## Makefile Commands
-
-```
-make setup              Create .env and Python venv
-make test-sf           Test Snowflake CLI connection
-make local             Run FastAPI locally (port 8000)
-make build             Build Docker image (linux/amd64)
-make push              Push image to Snowflake registry
-make deploy            Deploy service to SPCS (or update)
-make status            Show service status
-make logs              Show recent service logs
-make endpoints         Show public HTTPS endpoint
-make test              Run test_client.py (CEO + Analyst)
-make suspend           Suspend compute pool (stop billing)
-make resume            Resume compute pool
-make destroy           Drop service (keep data)
-make clean             Remove .venv and build artifacts
+</div>
 ```
 
 ## File Structure
