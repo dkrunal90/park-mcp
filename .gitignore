@@ -218,3 +218,42 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ===== SENSITIVE DATA & KEYS =====
+# Remove these files before committing!
+*.pem
+*.key
+*.pub
+*private_key*
+*private.key
+*RSA_PRIVATE_KEY*
+*BEGIN PRIVATE KEY*
+
+# Secrets and credentials
+.env
+.env.local
+.env.*.local
+*credentials*
+*secret*
+*token*
+*apikey*
+*api_key*
+*.secret
+
+# Deployment scripts with keys
+deploy_v*.sql
+untitaled.sql
+08_mcp_entra_mapping.sql
+
+# Build artifacts
+*.zip
+snowflake-spcs-rest-service.zip
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
