@@ -7,9 +7,8 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://abz2pr-tqmttqp-hw26207.snowflakecomputing.app/mcp',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        target: 'http://localhost:5000',
+        changeOrigin: true
       }
     }
   }

@@ -48,94 +48,108 @@ export default function Results({ results }) {
 }
 
 function formatOutput(data) {
+  // Handle string responses
   if (typeof data === 'string') {
-    return data
+    return <div style={{ lineHeight: '1.6', color: '#e2e8f0', fontSize: '1rem' }}>{data}</div>
+  }
+
+  // Handle errors
+  if (data.error) {
+    return (
+      <div style={{ color: '#f87171', fontSize: '1rem', lineHeight: '1.6' }}>
+        <strong>⚠️ Error:</strong> {data.detail}
+      </div>
+    )
   }
 
   if (data.detail) {
-    return `Error: ${data.detail}`
+    return <div style={{ color: '#f87171' }}>Error: {data.detail}</div>
   }
 
-  if (data.answer) {
-    return (
-      <>
-        <div style={{ marginBottom: '1rem', color: '#a5f3fc' }}>
-          <strong>Q:</strong> {data.question || 'Natural Language Query'}
-        </div>
-        <div style={{ color: '#86efac' }}>
-          <strong>A:</strong> {data.answer}
-        </div>
-      </>
-    )
-  }
-
-  // Format financial summary
-  if (data.ticket_revenue_by_park) {
-    return (
-      <>
-        <div style={{ marginBottom: '1rem' }}>
-          <strong style={{ color: '#fbbf24' }}>Parks (Visible to User):</strong>
-          <ul style={{ marginTop: '0.5rem', marginLeft: '1rem', color: '#a5f3fc' }}>
-            {data.ticket_revenue_by_park.map((park, i) => (
-              <li key={i}>
-                {park.PARK_NAME}: ${parseFloat(park.TICKET_NET_REVENUE).toLocaleString('en-US', {
-                  minimumFractionDigits: 2
-                })}
-              </li>
-            ))}
-          </ul>
-        </div>
-        {data.gl_actual_vs_budget_by_department && !data.gl_actual_vs_budget_by_department.includes && (
-          <div>
-            <strong style={{ color: '#fbbf24' }}>GL Departments (Accessible):</strong>
-            <ul style={{ marginTop: '0.5rem', marginLeft: '1rem', color: '#a5f3fc' }}>
-              {data.gl_actual_vs_budget_by_department.slice(0, 5).map((dept, i) => (
-                <li key={i}>
-                  {dept.DEPARTMENT_NAME}: ${parseFloat(dept.ACTUAL).toLocaleString()} / ${parseFloat(dept.BUDGET).toLocaleString()}
-                </li>
-              ))}
-              {data.gl_actual_vs_budget_by_department.length > 5 && (
-                <li>... and {data.gl_actual_vs_budget_by_department.length - 5} more</li>
-              )}
-            </ul>
-          </div>
-        )}
-        {typeof data.gl_actual_vs_budget_by_department === 'string' && (
-          <div style={{ color: '#f87171' }}>
-            <strong>GL Access:</strong> {data.gl_actual_vs_budget_by_department}
-          </div>
-        )}
-      </>
-    )
-  }
-
-  // Format identity response
+  // Format identity response (whoami) - Plain text
   if (data.snowflake_mapped_user) {
     return (
-      <>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <strong style={{ color: '#fbbf24' }}>Entra User:</strong>
-            <div style={{ color: '#a5f3fc' }}>{data.entra_user_identity}</div>
-          </div>
-          <div>
-            <strong style={{ color: '#fbbf24' }}>SF User:</strong>
-            <div style={{ color: '#a5f3fc' }}>{data.snowflake_mapped_user}</div>
-          </div>
-          <div>
-            <strong style={{ color: '#fbbf24' }}>SF Role:</strong>
-            <div style={{ color: '#86efac' }}>{data.snowflake_mapped_role}</div>
-          </div>
-          <div>
-            <strong style={{ color: '#fbbf24' }}>Correlation ID:</strong>
-            <div style={{ color: '#a5f3fc', fontSize: '0.8rem' }}>
-              {data.correlation_id}
-            </div>
-          </div>
-        </div>
-      </>
+      <div style={{ lineHeight: '1.8', color: '#e2e8f0', fontSize: '1rem' }}>
+        <p style={{ margin: '0.5rem 0' }}>
+          User: <strong>{data.entra_user_identity}</strong>
+        </p>
+        <p style={{ margin: '0.5rem 0' }}>
+          Role: <strong>{data.snowflake_mapped_role}</strong>
+        </p>
+        <p style={{ margin: '0.5rem 0', color: '#94a3b8', fontSize: '0.9rem' }}>
+          (ID: {data.correlation_id})
+        </p>
+      </div>
     )
   }
 
-  return JSON.stringify(data, null, 2)
+  // Format financial summary - Plain text only
+  if (data.ticket_revenue_by_park) {
+    const hasGLData = Array.isArray(data.gl_actual_vs_budget_by_department)
+    const glDenied = typeof data.gl_actual_vs_budget_by_department === 'string'
+    
+    return (
+      <div style={{ lineHeight: '1.8', color: '#e2e8f0', fontSize: '1rem' }}>
+        <p style={{ margin: '1rem 0 0.5rem 0', fontWeight: 'bold' }}>Parks Accessible:</p>
+        {data.ticket_revenue_by_park.map((park, i) => (
+          <p key={i} style={{ margin: '0.3rem 0', marginLeft: '1rem' }}>
+            • {park.PARK_NAME}: ${parseFloat(park.TICKET_NET_REVENUE).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          </p>
+        ))}
+
+        {glDenied && (
+          <>
+            <p style={{ margin: '1rem 0 0.5rem 0', fontWeight: 'bold', color: '#f87171' }}>Financial Departments:</p>
+            <p style={{ margin: '0.3rem 0', marginLeft: '1rem', color: '#f87171' }}>✗ Access Denied (Role-Based Access Control enforced)</p>
+          </>
+        )}
+
+        {hasGLData && (
+          <>
+            <p style={{ margin: '1rem 0 0.5rem 0', fontWeight: 'bold' }}>Department Budgets (Sample):</p>
+            {data.gl_actual_vs_budget_by_department.slice(0, 5).map((dept, i) => (
+              <p key={i} style={{ margin: '0.3rem 0', marginLeft: '1rem' }}>
+                • {dept.DEPARTMENT_NAME}: Actual ${parseFloat(dept.ACTUAL).toLocaleString('en-US', { maximumFractionDigits: 0 })} vs Budget ${parseFloat(dept.BUDGET).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              </p>
+            ))}
+            {data.gl_actual_vs_budget_by_department.length > 5 && (
+              <p style={{ margin: '0.5rem 0', marginLeft: '1rem', fontSize: '0.9rem', color: '#94a3b8' }}>
+                ... plus {data.gl_actual_vs_budget_by_department.length - 5} more departments
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // Format Cortex/AI answers - Plain text
+  if (data.answer) {
+    return (
+      <div style={{ lineHeight: '1.8', color: '#e2e8f0', fontSize: '1rem' }}>
+        <p style={{ margin: '0.5rem 0', color: '#fbbf24', fontWeight: 'bold' }}>Answer:</p>
+        <p style={{ margin: '0.5rem 0', whiteSpace: 'pre-wrap' }}>{data.answer}</p>
+      </div>
+    )
+  }
+
+  // Fallback for any other structured content - extract text only
+  if (data.content && Array.isArray(data.content)) {
+    return (
+      <div style={{ lineHeight: '1.8', color: '#e2e8f0', fontSize: '1rem' }}>
+        {data.content.map((item, i) => (
+          <p key={i} style={{ margin: '0.5rem 0' }}>
+            {item.text || JSON.stringify(item)}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  // Last resort - show minimal info
+  return (
+    <div style={{ lineHeight: '1.6', color: '#e2e8f0', fontSize: '1rem' }}>
+      <p>Data received successfully</p>
+    </div>
+  )
 }
